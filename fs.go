@@ -41,9 +41,10 @@ func printDirectory(inode Inode_t, h int){
 	for _,e := range entries{
 		name := string(e.Name[:])
 		path :=strings.Repeat("|--",h)
-		if e.Inode.I_mode == DIRECTORY_INODE{
+		ind := ReadInode(Disk, e.Inode_P)
+		if ind.I_mode == DIRECTORY_INODE{
 			fmt.Printf("%s/%s\n",path, name)
-			printDirectory(e.Inode, h+1)
+			printDirectory(ind, h+1)
 		}else{
 			fmt.Printf("%s/%s\n",path, name)
 		}
@@ -70,7 +71,7 @@ func main() {
 	Disk.Root_inode.CreateDirEntry(Disk,"dev",0x400)
 	
 	//Add /usr
-	createTextFile(&usrDir,"nte.txt", "hello")
+	createTextFile(&usrDir,"note.t", "hello")
 
 	//Disk.Root_inode.CreateDirEntry(Disk,"bin",0x400)
 

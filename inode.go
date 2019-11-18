@@ -18,7 +18,7 @@ const DIRECTORY_INODE = 0x400
 const REGULAR_FILE_INODE = 0x800
 
 type DirEntry_t struct{
-	Inode Inode_t
+	Inode_P int16	//Inode pointer
 	Name [8]byte
 }
 
@@ -55,7 +55,7 @@ func (inode *Inode_t) CreateDirEntry(disk * Disk_t, name string, mode int16) (in
 	//create dir_entry w/ Inode and name
 	charArr := [8]byte{}
 	copy(charArr[:],name)
-	dir_entry := DirEntry_t{Inode:newInode, Name:charArr}
+	dir_entry := DirEntry_t{Inode_P:address, Name:charArr}
 
 	//convert dir_entry to []byte
 	buff := &bytes.Buffer{}
@@ -69,6 +69,16 @@ func (inode *Inode_t) CreateDirEntry(disk * Disk_t, name string, mode int16) (in
 
 }
 
+/**
+*	@Desc: Read inode at mem address pInode
+*/
+func ReadInode(disk *Disk_t, pInode int16) Inode_t{
+	inode := Inode_t{}
+	b := disk.ReadData(int16(binary.Size(inode)),pInode)
+	buff := bytes.NewBuffer(b)
+	binary.Read(buff,binary.LittleEndian, &inode)
+	return inode
+}
 
 func (inode *Inode_t) ReadDirInode(disk *Disk_t) []DirEntry_t{
 	data := inode.ReadInodeData(disk)
