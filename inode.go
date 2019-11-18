@@ -18,7 +18,7 @@ const DIRECTORY_INODE = 0x400
 const REGULAR_FILE_INODE = 0x800
 
 type DirEntry_t struct{
-	Indode Inode_t
+	Inode Inode_t
 	Name [8]byte
 }
 
@@ -55,7 +55,7 @@ func (inode *Inode_t) CreateDirEntry(disk * Disk_t, name string, mode int16) (in
 	//create dir_entry w/ Inode and name
 	charArr := [8]byte{}
 	copy(charArr[:],name)
-	dir_entry := DirEntry_t{Indode:newInode, Name:charArr}
+	dir_entry := DirEntry_t{Inode:newInode, Name:charArr}
 
 	//convert dir_entry to []byte
 	buff := &bytes.Buffer{}
@@ -68,7 +68,6 @@ func (inode *Inode_t) CreateDirEntry(disk * Disk_t, name string, mode int16) (in
 	return address, newInode
 
 }
-
 
 
 func (inode *Inode_t) ReadDirInode(disk *Disk_t) []DirEntry_t{
@@ -88,69 +87,68 @@ func (inode *Inode_t) ReadDirInode(disk *Disk_t) []DirEntry_t{
 }
 
 
+
 /*  @Desc: Reads all data stored inside of an inode
  */
+
 func (inode *Inode_t) ReadInodeData(disk *Disk_t) []byte{
 	size := inode.I_size
 	data := make([]byte,0)
-	//Read one block at a time
-	for i:=0; i<int(size); i+=BLOCK_SIZE {
-		address :=inode.I_directBlocks[i/BLOCK_SIZE]
-		newData := disk.ReadData(size%BLOCK_SIZE, address)
+
+	bytesRead := int16(0)
+	block_index := int16(0)
+	//Read each block's data (or remaining data) and append to data
+	for bytesRead < size {
+		readSize := min(size-bytesRead,BLOCK_SIZE)
+		newData := disk.ReadData(readSize,inode.I_directBlocks[block_index])
 		data = append(data, newData...)
+		bytesRead += readSize
+		block_index++
 	}
-	inode.I_size+=int16(len(data))
 	return data
 }
 
+
+
 /**
-	Returns the block and offset where n bytes can be written
- */
-func (inode *Inode_t) getWriteLocation(n int16) (int16, int16){
+	Returns the block_num and offset of next availible space can be written
+	Aswell as how many more bytes can be written to the block
+	*/
+func (inode *Inode_t) getWriteLocation() (int16, int16,int16){
 
 	block_num := inode.I_size/BLOCK_SIZE
 	offset := inode.I_size%BLOCK_SIZE;
 	//if remaining data cannot fit into the remainder of the old block skip to next
-	if offset + n > BLOCK_SIZE {
-		return block_num+1, 0
-	}
 
-	return block_num, offset
+	return block_num, offset, BLOCK_SIZE-offset
 }
 
 func (inode *Inode_t) WriteInodeData(disk *Disk_t, data []byte){
 
-	for i:=0; i<len(data); i+=BLOCK_SIZE {
-		block_num, offset := inode.getWriteLocation(BLOCK_SIZE-1);//write each one to a new block
-		dataRange := [2]int16{offset,min(int16(len(data)),BLOCK_SIZE)}
+	bytesLeft := int16(len(data))
+	bytesWriten := int16(0)
+	for bytesLeft>0 {
+		block_num, off, bytes_avail := inode.getWriteLocation()
+		//how many bytes should I write
+		writeSize := min(bytesLeft,bytes_avail)
+		//where to write?
+		startAddress := inode.I_directBlocks[block_num] + off
+		//Which range of bytes to write
 
-		//Write to directBlock address + offset
-		address :=inode.I_directBlocks[block_num] + offset
-		//subset of data that can fit into one block
-		dataBlock := data[dataRange[0] : dataRange[1]]
-		inode.I_size += disk.WriteData(dataBlock,address)
+		writeData := data[bytesWriten:bytesWriten+writeSize]
+
+		//write data
+		w := disk.WriteData(writeData,startAddress)
+		if w!=writeSize {
+			panic("wrong number of bytes written")
+			return
+		}
+		bytesWriten += w
+		bytesLeft -= w
+		inode.I_size +=w
 	}
 }
 
-
-//func (inode *Inode_t) WriteInodeData(disk *Disk_t, data []byte) int16{
-//	var byteCount int16 = 0
-//	//Write to one block at a time
-//	//If set read range
-//	addressRange := [2]int16{inode.I_size,min(int16(len(data)),BLOCK_SIZE)}
-//	for i:=0; i<len(data); i+=BLOCK_SIZE {
-//		address :=inode.I_directBlocks[i/BLOCK_SIZE]
-//		//subset of data that can fit into one block
-//		dataBlock := data[addressRange[0] : addressRange[1]]
-//		bytesRead := disk.WriteData(dataBlock,address)
-//		addressRange[0] += bytesRead;
-//		addressRange[1] += bytesRead;
-//		byteCount += bytesRead
-//
-//	}
-//	inode.I_size += byteCount
-//	return byteCount
-//}
 
 func min(a, b int16) int16 {
 	if a<b{
