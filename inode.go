@@ -9,6 +9,7 @@ import (
 
 type Block = [BLOCK_SIZE] byte
 type Inode_t struct {
+	I_address	   int16
 	I_mode         int16
 	I_size         int16
 	I_directBlocks [3] int16
@@ -19,7 +20,7 @@ const REGULAR_FILE_INODE = 0x800
 
 type DirEntry_t struct{
 	Inode_P int16	//Inode pointer
-	Name [8]byte
+	Name [10]byte
 }
 
 /*
@@ -33,13 +34,11 @@ func CreateInode(disk *Disk_t, mode int16) (int16, Inode_t){
 	newInode.I_directBlocks[1] = disk.mallocBlock()
 	newInode.I_directBlocks[2] = disk.mallocBlock()
 
-	//cast to bytes
-	buff := &bytes.Buffer{}
-	binary.Write(buff,binary.LittleEndian,newInode)
 	//Malloc a block for writting the inode
 	address := disk.mallocBlock()
-	//Write new Inode
-	disk.WriteData(buff.Bytes(),address)
+	newInode.I_address = address
+
+	WriteInode(disk, newInode)
 	//update disk.InodeCount
 	disk.InodeCount++
 	//return saved location
@@ -53,7 +52,7 @@ func (inode *Inode_t) CreateDirEntry(disk * Disk_t, name string, mode int16) (in
 	//create Inode
 	address ,newInode := CreateInode(disk,mode)
 	//create dir_entry w/ Inode and name
-	charArr := [8]byte{}
+	charArr := [10]byte{}
 	copy(charArr[:],name)
 	dir_entry := DirEntry_t{Inode_P:address, Name:charArr}
 
@@ -78,6 +77,14 @@ func ReadInode(disk *Disk_t, pInode int16) Inode_t{
 	buff := bytes.NewBuffer(b)
 	binary.Read(buff,binary.LittleEndian, &inode)
 	return inode
+}
+
+func  WriteInode(disk * Disk_t,inode Inode_t){
+	//cast to bytes
+	buff := &bytes.Buffer{}
+	binary.Write(buff,binary.LittleEndian, inode)
+	//Write new Inode
+	disk.WriteData(buff.Bytes(),inode.I_address)
 }
 
 func (inode *Inode_t) ReadDirInode(disk *Disk_t) []DirEntry_t{
@@ -157,6 +164,7 @@ func (inode *Inode_t) WriteInodeData(disk *Disk_t, data []byte){
 		bytesLeft -= w
 		inode.I_size +=w
 	}
+	WriteInode(disk, *inode)
 }
 
 
