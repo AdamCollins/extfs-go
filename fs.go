@@ -101,7 +101,6 @@ func main() {
 	//Add /usr
 	touch(&usrDir,"notes.txt", "hello")
 	cd(&usrDir)
-	mkdir(nil,"bin")
 	//Disk.Root_inode.CreateDirEntry(Disk,"bin",0x400)
 
 	tree(Disk.Root_inode, 0)
