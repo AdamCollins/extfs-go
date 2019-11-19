@@ -87,6 +87,10 @@ func  WriteInode(disk * Disk_t,inode Inode_t){
 	disk.WriteData(buff.Bytes(),inode.I_address)
 }
 
+/**
+ * @Desc: Returns a list of directory entries inside this 
+ *		  directory inode.
+ */
 func (inode *Inode_t) ReadDirInode(disk *Disk_t) []DirEntry_t{
 	data := inode.ReadInodeData(disk)
 	entrySize := binary.Size(DirEntry_t{})
