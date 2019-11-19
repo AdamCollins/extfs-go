@@ -6,7 +6,7 @@ import (
 )
 
 var Disk *Disk_t
-
+var root_dir *Inode_t
 
 /*
  *  \
@@ -19,9 +19,9 @@ func initDisk(){
 	//Create root inode
 	_, root := CreateInode(Disk,0x400)
 	Disk.Root_inode = root
-
 	//Write changes to disk
 	Disk.WriteDisk()
+	root_dir = &Disk.Root_inode
 }
 
 func readFile(inode Inode_t) {
@@ -35,18 +35,22 @@ func readFile(inode Inode_t) {
 	* @Desc Recursively prints directories
 */
 func printDirectory(inode Inode_t, h int){
-
 	entries := inode.ReadDirInode(Disk)
-
+	if len(entries)>0 && h==0{
+		fmt.Println(".")
+	}
 	for _,e := range entries{
 		name := string(e.Name[:])
 		path :=strings.Repeat("   ",h)
 		ind := ReadInode(Disk, e.Inode_P)
 		if ind.I_mode == DIRECTORY_INODE{
-			fmt.Printf("└%s /%s\n",path, name)
+			if h>0 {
+				fmt.Printf("│")
+			}
+			fmt.Printf("%s└─ %s/\n",path, name)
 			printDirectory(ind, h+1)
 		}else{
-			fmt.Printf("│%s└── %s\n",path, name)
+			fmt.Printf("│%s└─ %s\n",path, name)
 		}
 	}
 }
@@ -59,20 +63,25 @@ func createTextFile(parent * Inode_t, name, contents string) Inode_t{
 	return entry
 }
 
-// func initRootDir(){}
-
+func mkdir(inode * Inode_t, name string) Inode_t{
+	_ , ind := inode.CreateDirEntry(Disk,name,0x400)
+	return ind
+}
 
 func main() {
 	initDisk()
 	//Add home dir to root
 
 	//Add /usr
-	_, usrDir := Disk.Root_inode.CreateDirEntry(Disk,"usr",0x400)
+	usrDir := mkdir(root_dir,"usr")
 	//Add /dev
-	Disk.Root_inode.CreateDirEntry(Disk,"dev",0x400)
+	mkdir(root_dir,"dev")
+	
 	
 	//Add /usr
 	createTextFile(&usrDir,"notes.txt", "hello")
+
+	mkdir(&usrDir,"bin")
 
 	//Disk.Root_inode.CreateDirEntry(Disk,"bin",0x400)
 
